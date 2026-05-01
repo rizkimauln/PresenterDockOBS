@@ -30,7 +30,6 @@ Tanpa perlu instalasi software tambahan, tanpa *server lokal*, dan sangat ringan
 <div align="center">
   <img src="admin-preview.png" alt="Tampilan Panel Admin OBS" width="800"/>
   <br/>
-  <i>(Catatan: Letakkan foto screenshot panel admin Anda di folder ini dan beri nama file <code>admin-preview.png</code> agar gambar otomatis muncul di sini).</i>
 </div>
 
 ---
