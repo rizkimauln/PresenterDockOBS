@@ -76,3 +76,8 @@ A: Tidak bisa. Fitur browser tidak memiliki *engine* Microsoft Office. Harap lak
 
 ---
 *Dibuat khusus untuk meningkatkan kemudahan presentasi live streaming yang elegan, mandiri, dan profesional.*
+
+<br/>
+<div align="center">
+  <i>&copy; Copyright rizki.mauln</i>
+</div>
