@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Viewer Presentasi</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body, html { 
+            margin: 0; padding: 0; 
+            width: 100vw; height: 100vh; 
+            background-color: #000; /* Default background */
+            overflow: hidden; 
+            display: flex; align-items: center; justify-content: center; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+        }
+        
+        /* The image will fit perfectly on screen without breaking aspect ratio */
+        img { 
+            max-width: 100%; max-height: 100%; 
+            object-fit: contain; 
+            display: none; 
+            box-shadow: 0 0 20px rgba(0,0,0,0.8);
+        }
+        
+        .empty-text { 
+            color: #666; font-size: 24px; 
+            display: none; text-align: center; 
+            animation: pulse 2s infinite ease-in-out;
+        }
+        .empty-text i { font-size: 64px; margin-bottom: 20px; display: block; color: #444; }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="empty-text" id="empty-text">
+        <i class="fa-solid fa-satellite-dish"></i>
+        <div>Menunggu Presentasi dari Panel...</div>
+        <div id="connection-status" style="font-size: 14px; margin-top: 15px; color: #0078d4; animation: none;">Menghubungkan ke internet...</div>
+    </div>
+    
+    <img id="viewer-img" src="" alt="Slide">
+
+    <script>
+        const viewerImg = document.getElementById('viewer-img');
+        const emptyText = document.getElementById('empty-text');
+
+        function updateImage(src) {
+            if (src) {
+                viewerImg.src = src;
+                viewerImg.style.display = 'block';
+                emptyText.style.display = 'none';
+            } else {
+                viewerImg.style.display = 'none';
+                emptyText.style.display = 'flex';
+                emptyText.style.flexDirection = 'column';
+            }
+        }
+
+        // Load initial state (if panel is already running in same context)
+        updateImage(localStorage.getItem('obs_slide'));
+
+        // 1. WebRTC Communication (PeerJS)
+        const statusEl = document.getElementById('connection-status');
+        const peer = new Peer(); // Random ID for viewer
+        
+        peer.on('open', (id) => {
+            statusEl.innerText = "Sinyal OK. Menghubungkan ke Dock...";
+            statusEl.style.color = "#e3b341";
+            connectToDock();
+        });
+
+        let isConnecting = false;
+
+        function connectToDock() {
+            if (isConnecting) return;
+            isConnecting = true;
+            statusEl.innerText = "Mencari Panel Dock...";
+            statusEl.style.color = "#e3b341";
+
+            const conn = peer.connect('obs-admin-rizki-99887766', { reliable: true });
+            
+            conn.on('open', () => {
+                isConnecting = false;
+                statusEl.innerText = "Berhasil Terhubung ke Dock!";
+                statusEl.style.color = "#0078d4";
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === 'slide') {
+                    updateImage(data.image);
+                } else if (data.type === 'clear') {
+                    updateImage(null);
+                }
+            });
+            
+            conn.on('close', () => {
+                isConnecting = false;
+                statusEl.innerText = "Terputus dari Dock. Menghubungkan ulang...";
+                statusEl.style.color = "#f85149";
+                setTimeout(connectToDock, 3000);
+            });
+            
+            conn.on('error', () => {
+                isConnecting = false;
+                setTimeout(connectToDock, 3000);
+            });
+        }
+
+        peer.on('error', (err) => {
+            isConnecting = false;
+            if (err.type === 'peer-unavailable') {
+                statusEl.innerText = "Dock belum aktif. Menunggu Dock...";
+                statusEl.style.color = "#e3b341";
+                setTimeout(connectToDock, 3000);
+            } else if (err.type === 'network' || err.type === 'disconnected') {
+                statusEl.innerText = "Koneksi terputus. Reconnecting...";
+                statusEl.style.color = "#f85149";
+                setTimeout(() => { if (!peer.destroyed) peer.reconnect(); }, 3000);
+            } else {
+                statusEl.innerText = "Error Sinyal: " + err.type;
+                statusEl.style.color = "#f85149";
+            }
+        });
+
+        peer.on('disconnected', () => {
+            statusEl.innerText = "Internet terputus. Reconnecting...";
+            statusEl.style.color = "#f85149";
+            setTimeout(() => { if (!peer.destroyed) peer.reconnect(); }, 3000);
+        });
+
+        // 2. Fallback: BroadcastChannel (if internet is down but OBS allows it)
+        const obsChannel = new BroadcastChannel('obs_presenter_channel');
+        obsChannel.onmessage = function(e) {
+            if (e.data.type === 'slide') updateImage(e.data.image);
+            else if (e.data.type === 'clear') updateImage(null);
+        };
+
+        // 3. Fallback: localStorage (for standard Chrome/Edge usage)
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'obs_slide') updateImage(e.newValue);
+        });
+    </script>
+</body>
+</html>
